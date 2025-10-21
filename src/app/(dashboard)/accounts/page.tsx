@@ -34,48 +34,85 @@ export default function AccountsPage() {
   const [filterType, setFilterType] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
   const { user } = useUser()
   const supabase = createClient()
 
   useEffect(() => {
     if (user) {
-      fetchAccounts()
-      fetchCategories()
+      checkAdminAndFetchData()
     }
   }, [user])
 
-  const fetchAccounts = async () => {
+  const checkAdminAndFetchData = async () => {
     try {
-      const { data, error } = await supabase
+      // Verificar se é admin
+      const { data: profile } = await supabase
+        .from('users_profiles')
+        .select('role')
+        .eq('id', user?.id)
+        .single()
+
+      const isAdminUser = profile?.role === 'admin'
+      setIsAdmin(isAdminUser)
+      
+      await Promise.all([
+        fetchAccounts(isAdminUser),
+        fetchCategories(isAdminUser)
+      ])
+    } catch (error) {
+      console.error('Error checking admin:', error)
+      await Promise.all([
+        fetchAccounts(false),
+        fetchCategories(false)
+      ])
+    }
+  }
+
+  const fetchAccounts = async (isAdminUser: boolean) => {
+    try {
+      // Se for admin, busca todas; se não, apenas do usuário
+      let accountsQuery = supabase
         .from('accounts')
         .select(`
           *,
           category:categories(*)
         `)
-        .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
+
+      if (!isAdminUser) {
+        accountsQuery = accountsQuery.eq('user_id', user?.id)
+      }
+
+      const { data, error } = await accountsQuery
 
       if (error) throw error
       setAccounts(data || [])
     } catch (error) {
       console.error('Error fetching accounts:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (isAdminUser: boolean) => {
     try {
-      const { data, error } = await supabase
+      // Se for admin, busca todas; se não, apenas do usuário
+      let categoriesQuery = supabase
         .from('categories')
         .select('*')
-        .eq('user_id', user?.id)
         .order('name')
+
+      if (!isAdminUser) {
+        categoriesQuery = categoriesQuery.eq('user_id', user?.id)
+      }
+
+      const { data, error } = await categoriesQuery
 
       if (error) throw error
       setCategories(data || [])
     } catch (error) {
       console.error('Error fetching categories:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -137,9 +174,11 @@ export default function AccountsPage() {
     <div className="space-y-6">
       <div className="sm:flex sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Minhas Contas</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isAdmin ? 'Todas as Contas' : 'Minhas Contas'}
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Gerencie suas contas de Instagram, WhatsApp e grupos
+            {isAdmin ? 'Gerencie todas as contas do sistema' : 'Gerencie suas contas de Instagram, WhatsApp e grupos'}
           </p>
         </div>
         <div className="mt-4 sm:mt-0">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 
@@ -23,22 +24,56 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
   const { user } = useUser()
+  const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
     if (user) {
-      fetchCategories()
+      checkAdminAndFetchCategories()
     }
   }, [user])
 
-  const fetchCategories = async () => {
+  const checkAdminAndFetchCategories = async () => {
     try {
-      const { data, error } = await supabase
+      // Verificar se é admin
+      const { data: profile } = await supabase
+        .from('users_profiles')
+        .select('role')
+        .eq('id', user?.id)
+        .single()
+
+      const isAdminUser = profile?.role === 'admin'
+      setIsAdmin(isAdminUser)
+      
+      // Se não for admin, redirecionar para o dashboard
+      if (!isAdminUser) {
+        router.push('/dashboard')
+        return
+      }
+      
+      await fetchCategories(isAdminUser)
+    } catch (error) {
+      console.error('Error checking admin:', error)
+      // Se houver erro ao verificar admin, redirecionar para dashboard
+      router.push('/dashboard')
+    }
+  }
+
+  const fetchCategories = async (isAdminUser: boolean) => {
+    try {
+      // Se for admin, busca todas; se não, apenas do usuário
+      let categoriesQuery = supabase
         .from('categories')
         .select('*')
-        .eq('user_id', user?.id)
         .order('name')
+
+      if (!isAdminUser) {
+        categoriesQuery = categoriesQuery.eq('user_id', user?.id)
+      }
+
+      const { data, error } = await categoriesQuery
 
       if (error) throw error
       setCategories(data || [])
@@ -85,7 +120,7 @@ export default function CategoriesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Categorias</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Organize suas contas em categorias personalizadas
+            {isAdmin ? 'Gerencie todas as categorias do sistema' : 'Organize suas contas em categorias personalizadas'}
           </p>
         </div>
         <div className="mt-4 sm:mt-0">

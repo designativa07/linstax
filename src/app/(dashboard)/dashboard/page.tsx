@@ -51,34 +51,64 @@ export default function DashboardPage() {
     recentAccounts: []
   })
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const { user } = useUser()
   const supabase = createClient()
 
   useEffect(() => {
     if (user) {
-      fetchStats()
+      checkAdminAndFetchStats()
     }
   }, [user])
 
-  const fetchStats = async () => {
+  const checkAdminAndFetchStats = async () => {
     try {
-      // Fetch accounts
-      const { data: accounts, error: accountsError } = await supabase
+      // Verificar se é admin
+      const { data: profile } = await supabase
+        .from('users_profiles')
+        .select('role')
+        .eq('id', user?.id)
+        .single()
+
+      const isAdminUser = profile?.role === 'admin'
+      setIsAdmin(isAdminUser)
+      
+      await fetchStats(isAdminUser)
+    } catch (error) {
+      console.error('Error checking admin:', error)
+      await fetchStats(false)
+    }
+  }
+
+  const fetchStats = async (isAdminUser: boolean) => {
+    try {
+      // Fetch accounts - se for admin, busca todas; se não, apenas do usuário
+      let accountsQuery = supabase
         .from('accounts')
         .select(`
           *,
           category:categories(*)
         `)
-        .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
+
+      if (!isAdminUser) {
+        accountsQuery = accountsQuery.eq('user_id', user?.id)
+      }
+
+      const { data: accounts, error: accountsError } = await accountsQuery
 
       if (accountsError) throw accountsError
 
-      // Fetch categories
-      const { data: categories, error: categoriesError } = await supabase
+      // Fetch categories - se for admin, busca todas; se não, apenas do usuário
+      let categoriesQuery = supabase
         .from('categories')
         .select('*')
-        .eq('user_id', user?.id)
+
+      if (!isAdminUser) {
+        categoriesQuery = categoriesQuery.eq('user_id', user?.id)
+      }
+
+      const { data: categories, error: categoriesError } = await categoriesQuery
 
       if (categoriesError) throw categoriesError
 
@@ -141,7 +171,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Visão geral das suas contas e estatísticas
+          {isAdmin ? 'Visão geral de todas as contas do sistema' : 'Visão geral das suas contas e estatísticas'}
         </p>
       </div>
 

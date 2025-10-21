@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
-import { requireAdmin } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+// Verificação de admin é tratada no layout; evitar imports server-only aqui
 import Link from 'next/link'
 import { 
   UserGroupIcon, 
@@ -21,16 +20,8 @@ interface Account {
   username?: string
   phone?: string
   description?: string
-  user: {
-    id: string
-    email: string
-    display_name?: string
-  }
-  category?: {
-    id: string
-    name: string
-    color: string
-  }
+  user_id?: string
+  category_id?: string
   created_at: string
 }
 
@@ -44,28 +35,17 @@ export default function AdminAccountsPage() {
 
   useEffect(() => {
     if (user) {
-      checkAdminAccess()
       fetchAccounts()
     }
   }, [user])
 
-  const checkAdminAccess = async () => {
-    try {
-      await requireAdmin()
-    } catch {
-      redirect('/dashboard')
-    }
-  }
+  // Access control: o layout já redireciona usuários não-admin
 
   const fetchAccounts = async () => {
     try {
       const { data, error } = await supabase
         .from('accounts')
-        .select(`
-          *,
-          user:users_profiles(id, display_name),
-          category:categories(*)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -98,7 +78,6 @@ export default function AdminAccountsPage() {
   const filteredAccounts = accounts.filter(account => {
     const matchesType = filterType === 'all' || account.type === filterType
     const matchesSearch = account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         account.user?.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          account.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          account.phone?.includes(searchTerm)
     
@@ -198,14 +177,7 @@ export default function AdminAccountsPage() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(account.type)}`}>
                           {getTypeLabel(account.type)}
                         </span>
-                        {account.category && (
-                          <span 
-                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
-                            style={{ backgroundColor: account.category.color }}
-                          >
-                            {account.category.name}
-                          </span>
-                        )}
+                        {/* Categoria omitida na visão admin simplificada */}
                       </div>
                       <h3 className="text-lg font-medium text-gray-900 mb-1">
                         {account.name}
@@ -220,9 +192,7 @@ export default function AdminAccountsPage() {
                         {account.description && (
                           <p>{account.description}</p>
                         )}
-                        <p className="text-gray-500">
-                          Proprietário: {account.user?.email}
-                        </p>
+                        {/* Proprietário omitido para evitar join com auth.users no client */}
                         <p className="text-xs text-gray-400">
                           Criado em {new Date(account.created_at).toLocaleDateString('pt-BR')}
                         </p>

@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { Bars3Icon, XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { Bars3Icon, XMarkIcon, MagnifyingGlassIcon, PhotoIcon, ChatBubbleLeftRightIcon, UserGroupIcon } from '@heroicons/react/24/outline'
+import UserMenu from '@/components/UserMenu'
 
 export default function PublicLayout({
   children,
@@ -31,44 +32,37 @@ export default function PublicLayout({
             <nav className="hidden md:flex items-center space-x-8">
               <Link 
                 href="/profiles" 
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                className="flex items-center text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
               >
+                <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
                 Explorar Perfis
               </Link>
               <Link 
                 href="/profiles?type=instagram" 
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                className="flex items-center text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
               >
+                <PhotoIcon className="h-5 w-5 mr-2" />
                 Instagram
               </Link>
               <Link 
                 href="/profiles?type=whatsapp" 
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                className="flex items-center text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
               >
+                <ChatBubbleLeftRightIcon className="h-5 w-5 mr-2" />
                 WhatsApp
               </Link>
               <Link 
                 href="/profiles?type=whatsapp_group" 
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                className="flex items-center text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
               >
+                <UserGroupIcon className="h-5 w-5 mr-2" />
                 Grupos
               </Link>
             </nav>
 
             {/* Desktop Actions */}
-            <div className="hidden md:flex items-center space-x-4">
-              <Link 
-                href="/login" 
-                className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-              >
-                Entrar
-              </Link>
-              <Link 
-                href="/register" 
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-              >
-                Cadastrar
-              </Link>
+            <div className="hidden md:flex items-center">
+              <UserMenu />
             </div>
 
             {/* Mobile menu button */}
@@ -93,47 +87,38 @@ export default function PublicLayout({
             <div className="px-2 pt-2 pb-3 space-y-1">
               <Link 
                 href="/profiles" 
-                className="block px-3 py-2 text-gray-700 hover:text-blue-600 rounded-md text-base font-medium"
+                className="flex items-center px-3 py-2 text-gray-700 hover:text-blue-600 rounded-md text-base font-medium"
                 onClick={() => setMobileMenuOpen(false)}
               >
+                <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
                 Explorar Perfis
               </Link>
               <Link 
                 href="/profiles?type=instagram" 
-                className="block px-3 py-2 text-gray-700 hover:text-blue-600 rounded-md text-base font-medium"
+                className="flex items-center px-3 py-2 text-gray-700 hover:text-blue-600 rounded-md text-base font-medium"
                 onClick={() => setMobileMenuOpen(false)}
               >
+                <PhotoIcon className="h-5 w-5 mr-2" />
                 Instagram
               </Link>
               <Link 
                 href="/profiles?type=whatsapp" 
-                className="block px-3 py-2 text-gray-700 hover:text-blue-600 rounded-md text-base font-medium"
+                className="flex items-center px-3 py-2 text-gray-700 hover:text-blue-600 rounded-md text-base font-medium"
                 onClick={() => setMobileMenuOpen(false)}
               >
+                <ChatBubbleLeftRightIcon className="h-5 w-5 mr-2" />
                 WhatsApp
               </Link>
               <Link 
                 href="/profiles?type=whatsapp_group" 
-                className="block px-3 py-2 text-gray-700 hover:text-blue-600 rounded-md text-base font-medium"
+                className="flex items-center px-3 py-2 text-gray-700 hover:text-blue-600 rounded-md text-base font-medium"
                 onClick={() => setMobileMenuOpen(false)}
               >
+                <UserGroupIcon className="h-5 w-5 mr-2" />
                 Grupos
               </Link>
-              <div className="border-t pt-3 mt-3">
-                <Link 
-                  href="/login" 
-                  className="block px-3 py-2 text-gray-700 hover:text-blue-600 rounded-md text-base font-medium"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Entrar
-                </Link>
-                <Link 
-                  href="/register" 
-                  className="block px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-base font-medium mx-3 mt-2"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Cadastrar
-                </Link>
+              <div className="border-t pt-3 mt-3 px-3">
+                <UserMenu />
               </div>
             </div>
           </div>

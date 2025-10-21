@@ -12,17 +12,30 @@ import {
   CogIcon,
   UsersIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  MagnifyingGlassIcon,
+  ArrowRightOnRectangleIcon,
+  GlobeAltIcon,
+  UserCircleIcon
 } from '@heroicons/react/24/outline'
 import { useState, useEffect } from 'react'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Minhas Contas', href: '/accounts', icon: UserGroupIcon },
-  { name: 'Categorias', href: '/categories', icon: TagIcon },
+]
+
+const userNavigation = [
+  { name: 'Meu Perfil', href: '/profile', icon: UserCircleIcon },
+]
+
+const publicNavigation = [
+  { name: 'Página Inicial', href: '/', icon: GlobeAltIcon },
+  { name: 'Explorar Perfis', href: '/profiles', icon: MagnifyingGlassIcon },
 ]
 
 const adminNavigation = [
+  { name: 'Categorias', href: '/categories', icon: TagIcon },
   { name: 'Todas as Contas', href: '/admin/accounts', icon: UserGroupIcon },
   { name: 'Usuários', href: '/admin/users', icon: UsersIcon },
 ]
@@ -35,6 +48,7 @@ export default function DashboardLayout({
   const { user, loading } = useUser()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [shouldRedirect, setShouldRedirect] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -44,6 +58,20 @@ export default function DashboardLayout({
       fetchUserProfile()
     }
   }, [user])
+
+  // Efeito para redirecionamento quando não há usuário
+  useEffect(() => {
+    if (!loading && !user) {
+      setShouldRedirect(true)
+    }
+  }, [loading, user])
+
+  // Efeito para executar o redirecionamento
+  useEffect(() => {
+    if (shouldRedirect) {
+      router.push('/login')
+    }
+  }, [shouldRedirect, router])
 
   const fetchUserProfile = async () => {
     try {
@@ -55,15 +83,20 @@ export default function DashboardLayout({
 
       if (!error && profile) {
         setIsAdmin(profile.role === 'admin')
+      } else if (error) {
+        console.log('⚠️ Não foi possível carregar role (aplique a migração 010):', error.message)
+        // Não é admin se não conseguir carregar
+        setIsAdmin(false)
       }
     } catch (err) {
       console.error('Erro ao buscar perfil:', err)
+      setIsAdmin(false)
     }
   }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/')
   }
 
   if (loading) {
@@ -87,8 +120,11 @@ export default function DashboardLayout({
     )
   }
 
+  if (shouldRedirect) {
+    return null
+  }
+
   if (!user) {
-    router.push('/login')
     return null
   }
 
@@ -112,7 +148,7 @@ export default function DashboardLayout({
               <h1 className="text-xl font-bold text-indigo-600">Linstax</h1>
             </div>
             <nav className="mt-5 px-2 space-y-1">
-              {navigation.map((item) => {
+                {navigation.map((item) => {
                 const isActive = pathname === item.href
                 return (
                   <Link
@@ -129,6 +165,31 @@ export default function DashboardLayout({
                   </Link>
                 )
               })}
+              
+              {/* User Menu */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <div className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Conta
+                </div>
+              </div>
+              {userNavigation.map((item) => {
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`${
+                      isActive
+                        ? 'bg-indigo-100 text-indigo-900'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
+                  >
+                    <item.icon className="mr-4 h-6 w-6" />
+                    {item.name}
+                  </Link>
+                )
+              })}
+              
               {isAdmin && (
                 <>
                   <div className="border-t border-gray-200 pt-4 mt-4">
@@ -155,6 +216,23 @@ export default function DashboardLayout({
                   })}
                 </>
               )}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <div className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Site Público
+                </div>
+              </div>
+              {publicNavigation.map((item) => {
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className="text-gray-600 hover:bg-gray-50 hover:text-gray-900 group flex items-center px-2 py-2 text-base font-medium rounded-md"
+                  >
+                    <item.icon className="mr-4 h-6 w-6" />
+                    {item.name}
+                  </Link>
+                )
+              })}
             </nav>
           </div>
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
@@ -163,8 +241,9 @@ export default function DashboardLayout({
                 <p className="text-base font-medium text-gray-700">{user.email}</p>
                 <button
                   onClick={handleLogout}
-                  className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                  className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-700"
                 >
+                  <ArrowRightOnRectangleIcon className="h-4 w-4 mr-1" />
                   Sair
                 </button>
               </div>
@@ -199,6 +278,31 @@ export default function DashboardLayout({
                     </Link>
                   )
                 })}
+                
+                {/* User Menu */}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <div className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Conta
+                  </div>
+                </div>
+                {userNavigation.map((item) => {
+                  const isActive = pathname === item.href
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={`${
+                        isActive
+                          ? 'bg-indigo-100 text-indigo-900'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                    >
+                      <item.icon className="mr-3 h-5 w-5" />
+                      {item.name}
+                    </Link>
+                  )
+                })}
+                
                 {isAdmin && (
                   <>
                     <div className="border-t border-gray-200 pt-4 mt-4">
@@ -225,6 +329,23 @@ export default function DashboardLayout({
                     })}
                   </>
                 )}
+                <div className="border-t border-gray-200 pt-4 mt-4">
+                  <div className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Site Público
+                  </div>
+                </div>
+                {publicNavigation.map((item) => {
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className="text-gray-600 hover:bg-gray-50 hover:text-gray-900 group flex items-center px-2 py-2 text-sm font-medium rounded-md"
+                    >
+                      <item.icon className="mr-3 h-5 w-5" />
+                      {item.name}
+                    </Link>
+                  )
+                })}
               </nav>
             </div>
             <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
@@ -233,8 +354,9 @@ export default function DashboardLayout({
                   <p className="text-sm font-medium text-gray-700">{user.email}</p>
                   <button
                     onClick={handleLogout}
-                    className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                    className="flex items-center text-xs font-medium text-gray-500 hover:text-gray-700"
                   >
+                    <ArrowRightOnRectangleIcon className="h-3 w-3 mr-1" />
                     Sair
                   </button>
                 </div>

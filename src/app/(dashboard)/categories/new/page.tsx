@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
 import { useRouter } from 'next/navigation'
@@ -22,6 +22,33 @@ export default function NewCategoryPage() {
   const { user } = useUser()
   const router = useRouter()
   const supabase = createClient()
+
+  useEffect(() => {
+    if (user) {
+      checkAdminAccess()
+    }
+  }, [user])
+
+  const checkAdminAccess = async () => {
+    try {
+      const { data: profile } = await supabase
+        .from('users_profiles')
+        .select('role')
+        .eq('id', user?.id)
+        .single()
+
+      const isAdminUser = profile?.role === 'admin'
+      
+      // Se não for admin, redirecionar para o dashboard
+      if (!isAdminUser) {
+        router.push('/dashboard')
+        return
+      }
+    } catch (error) {
+      console.error('Error checking admin:', error)
+      router.push('/dashboard')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -40,7 +40,8 @@ export async function updateSession(request: NextRequest) {
   const isProtectedPage = request.nextUrl.pathname.startsWith('/dashboard') || 
                           request.nextUrl.pathname.startsWith('/accounts') || 
                           request.nextUrl.pathname.startsWith('/categories') ||
-                          request.nextUrl.pathname.startsWith('/admin')
+                          request.nextUrl.pathname.startsWith('/admin') ||
+                          request.nextUrl.pathname.startsWith('/profile')
   const hasAuthCookie = request.cookies.has('sb-iotpchnaacvqsavqnszj-auth-token')
   
   if (isProtectedPage && hasAuthCookie && !user) {

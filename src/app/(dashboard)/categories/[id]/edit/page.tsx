@@ -34,9 +34,33 @@ export default function EditCategoryPage({ params }: { params: Promise<{ id: str
 
   useEffect(() => {
     if (user) {
-      fetchCategory()
+      checkAdminAccess()
     }
-  }, [user, resolvedParams.id])
+  }, [user])
+
+  const checkAdminAccess = async () => {
+    try {
+      const { data: profile } = await supabase
+        .from('users_profiles')
+        .select('role')
+        .eq('id', user?.id)
+        .single()
+
+      const isAdminUser = profile?.role === 'admin'
+      
+      // Se não for admin, redirecionar para o dashboard
+      if (!isAdminUser) {
+        router.push('/dashboard')
+        return
+      }
+      
+      // Se for admin, buscar a categoria
+      fetchCategory()
+    } catch (error) {
+      console.error('Error checking admin:', error)
+      router.push('/dashboard')
+    }
+  }
 
   const fetchCategory = async () => {
     try {

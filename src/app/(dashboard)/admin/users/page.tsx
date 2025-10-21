@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/lib/hooks/useUser'
-import { requireAdmin } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+// Verificação de admin é tratada no layout; evitar imports server-only aqui
 import { 
   ShieldCheckIcon,
   ShieldExclamationIcon,
   UserIcon,
-  CalendarIcon
+  CalendarIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 
 interface UserProfile {
@@ -17,11 +17,7 @@ interface UserProfile {
   role: 'admin' | 'user'
   display_name?: string
   created_at: string
-  user: {
-    id: string
-    email: string
-    created_at: string
-  }
+  // Dados de auth (email) não disponíveis no cliente sem função/serviço
 }
 
 export default function AdminUsersPage() {
@@ -34,27 +30,17 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (user) {
-      checkAdminAccess()
       fetchUsers()
     }
   }, [user])
 
-  const checkAdminAccess = async () => {
-    try {
-      await requireAdmin()
-    } catch {
-      redirect('/dashboard')
-    }
-  }
+  // Access control: o layout já redireciona usuários não-admin
 
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
         .from('users_profiles')
-        .select(`
-          *,
-          user:auth.users(id, email, created_at)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -66,16 +52,16 @@ export default function AdminUsersPage() {
     }
   }
 
-  const toggleUserRole = async (userId: string, currentRole: string) => {
+  const toggleUserRole = async (userId: string, currentRole: 'admin' | 'user') => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin'
     
     if (!confirm(`Tem certeza que deseja ${newRole === 'admin' ? 'promover' : 'rebaixar'} este usuário?`)) return
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase
         .from('users_profiles')
         .update({ role: newRole })
-        .eq('id', userId)
+        .eq('id', userId) as any)
 
       if (error) throw error
       
@@ -88,11 +74,38 @@ export default function AdminUsersPage() {
     }
   }
 
+  const deleteUserProfile = async (userId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este usuário? Isso remove o perfil e todas as suas contas, categorias e dados relacionados.')) return
+
+    try {
+      const response = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao excluir usuário')
+      }
+
+      // Remover da lista local
+      setUsers(users.filter(u => u.id !== userId))
+      
+      alert(result.message || 'Usuário excluído com sucesso!')
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert(error instanceof Error ? error.message : 'Erro ao excluir o usuário')
+    }
+  }
+
   const filteredUsers = users.filter(userProfile => {
     const matchesRole = filterRole === 'all' || userProfile.role === filterRole
-    const matchesSearch = userProfile.user?.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         userProfile.display_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    
+    const normalizedSearch = searchTerm.toLowerCase()
+    const matchesSearch = (userProfile.display_name || '').toLowerCase().includes(normalizedSearch)
     return matchesRole && matchesSearch
   })
 
@@ -246,7 +259,6 @@ export default function AdminUsersPage() {
                         {userProfile.display_name || 'Sem nome'}
                       </h3>
                       <div className="text-sm text-gray-600 space-y-1">
-                        <p>{userProfile.user?.email}</p>
                         <div className="flex items-center text-xs text-gray-400">
                           <CalendarIcon className="h-3 w-3 mr-1" />
                           Cadastrado em {new Date(userProfile.created_at).toLocaleDateString('pt-BR')}
@@ -254,6 +266,14 @@ export default function AdminUsersPage() {
                       </div>
                     </div>
                     <div className="flex space-x-2">
+                      <button
+                        onClick={() => deleteUserProfile(userProfile.id)}
+                        className="px-3 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 hover:bg-red-200"
+                        title="Excluir usuário (remove perfil e todos os dados relacionados)"
+                      >
+                        <TrashIcon className="h-3 w-3 mr-1 inline" />
+                        Excluir
+                      </button>
                       <button
                         onClick={() => toggleUserRole(userProfile.id, userProfile.role)}
                         className={`px-3 py-1 text-xs font-medium rounded-full ${

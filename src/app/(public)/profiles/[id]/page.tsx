@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { 
   ArrowLeftIcon,
   UserIcon, 
@@ -14,6 +15,9 @@ import {
 } from '@heroicons/react/24/outline'
 import InstagramEmbed from '@/components/InstagramEmbed'
 import InstagramEmbedPost from '@/components/InstagramEmbedPost'
+import RatingStars from '@/components/RatingStars'
+import { useRatings } from '@/lib/hooks/useRatings'
+import { useUser } from '@/lib/hooks/useUser'
 
 interface Account {
   id: string
@@ -40,14 +44,35 @@ export default function ProfileDetailPage() {
   const [account, setAccount] = useState<Account | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [ratingValue, setRatingValue] = useState(0)
+  const [ratingComment, setRatingComment] = useState('')
   const params = useParams()
   const supabase = createClient()
+  const { user } = useUser()
+  const { 
+    stats, 
+    userRating, 
+    ratings,
+    loading: ratingsLoading, 
+    submitting,
+    loadRatings,
+    submitRating,
+    deleteRating 
+  } = useRatings(params.id as string)
 
   useEffect(() => {
     if (params.id) {
       fetchAccount(params.id as string)
+      loadRatings(params.id as string)
     }
   }, [params.id])
+
+  // Sincronizar avaliação do usuário com o estado local
+  useEffect(() => {
+    if (userRating !== null) {
+      setRatingValue(userRating)
+    }
+  }, [userRating])
 
   const fetchAccount = async (id: string) => {
     try {
@@ -76,12 +101,6 @@ export default function ProfileDetailPage() {
       const account = accountData as any
 
       // Fetch related data separately
-      const { data: userData } = await supabase
-        .from('users_profiles')
-        .select('id, display_name')
-        .eq('id', account.user_id)
-        .single()
-
       const { data: categoriesData } = await supabase
         .from('accounts_categories')
         .select(`
@@ -97,7 +116,7 @@ export default function ProfileDetailPage() {
 
       const enrichedAccount = {
         ...account,
-        user: userData || { id: account.user_id, display_name: null },
+        user: { id: account.user_id, display_name: null },
         categories: categories
       }
       
@@ -115,8 +134,10 @@ export default function ProfileDetailPage() {
     switch (type) {
       case 'instagram':
         return (
-          <div className="w-16 h-16 bg-gradient-to-r from-pink-500 to-purple-600 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-xl">IG</span>
+          <div className="w-16 h-16 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 rounded-full flex items-center justify-center">
+            <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+            </svg>
           </div>
         )
       case 'whatsapp':
@@ -165,6 +186,39 @@ export default function ProfileDetailPage() {
       const cleanPhone = account.phone.replace(/\D/g, '')
       window.open(`https://wa.me/${cleanPhone}`, '_blank')
     }
+  }
+
+  const handleSubmitRating = async () => {
+    if (!account || ratingValue === 0) return
+    
+    const success = await submitRating(account.id, ratingValue, ratingComment)
+    if (success) {
+      setRatingComment('')
+      // Recarregar avaliações
+      await loadRatings(account.id)
+    }
+  }
+
+  const handleDeleteRating = async () => {
+    if (!account) return
+    
+    const success = await deleteRating(account.id)
+    if (success) {
+      setRatingValue(0)
+      setRatingComment('')
+      // Recarregar avaliações
+      await loadRatings(account.id)
+    }
+  }
+
+  const formatRatingDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   }
 
   if (loading) {
@@ -358,18 +412,177 @@ export default function ProfileDetailPage() {
 
           {/* Metadata */}
           <div className="border-t pt-6">
-            <div className="flex items-center text-sm text-gray-500 space-x-6">
-              <div className="flex items-center">
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                <span>Cadastrado em {formatDate(account.created_at)}</span>
-              </div>
-              {account.user.display_name && (
-                <div className="flex items-center">
-                  <UserIcon className="h-4 w-4 mr-2" />
-                  <span>por {account.user.display_name}</span>
-                </div>
-              )}
+            <div className="flex items-center text-sm text-gray-500">
+              <CalendarIcon className="h-4 w-4 mr-2" />
+              <span>Cadastrado em {formatDate(account.created_at)}</span>
             </div>
+          </div>
+
+          {/* Ratings Section */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Avaliações</h3>
+            
+            {/* Rating Statistics */}
+            {!ratingsLoading && stats && (
+              <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-gray-900">
+                        {stats.average_rating.toFixed(1)}
+                      </div>
+                      <RatingStars 
+                        rating={stats.average_rating}
+                        size="md"
+                        showCount={false}
+                      />
+                      <div className="text-sm text-gray-600 mt-1">
+                        {stats.total_ratings} {stats.total_ratings === 1 ? 'avaliação' : 'avaliações'}
+                      </div>
+                    </div>
+
+                    {stats.total_ratings > 0 && (
+                      <div className="flex-1 space-y-2 ml-4">
+                        {[5, 4, 3, 2, 1].map((star) => {
+                          const count = stats[`rating_${star}` as keyof typeof stats] as number
+                          const percentage = stats.total_ratings > 0 ? (count / stats.total_ratings) * 100 : 0
+                          return (
+                            <div key={star} className="flex items-center gap-2 text-sm">
+                              <span className="text-gray-600 w-8">{star}★</span>
+                              <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-yellow-400 rounded-full h-2 transition-all"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                              <span className="text-gray-600 w-8 text-right">{count}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* User Rating Form */}
+            {user && (
+              <div className="bg-blue-50 rounded-lg p-6 mb-6">
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  {userRating ? 'Sua Avaliação' : 'Avaliar este perfil'}
+                </h4>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nota
+                    </label>
+                    <RatingStars 
+                      rating={ratingValue}
+                      size="lg"
+                      interactive
+                      onChange={setRatingValue}
+                      showCount={false}
+                      disabled={submitting}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Comentário (opcional)
+                    </label>
+                    <textarea
+                      value={ratingComment}
+                      onChange={(e) => setRatingComment(e.target.value)}
+                      placeholder="Compartilhe sua experiência..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      rows={3}
+                      disabled={submitting}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSubmitRating}
+                      disabled={ratingValue === 0 || submitting}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {submitting ? 'Salvando...' : (userRating ? 'Atualizar Avaliação' : 'Enviar Avaliação')}
+                    </button>
+                    {userRating && (
+                      <button
+                        onClick={handleDeleteRating}
+                        disabled={submitting}
+                        className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors disabled:bg-gray-200 disabled:cursor-not-allowed"
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!user && (
+              <div className="bg-gray-50 rounded-lg p-6 mb-6 text-center">
+                <p className="text-gray-600 mb-3">Faça login para avaliar este perfil</p>
+                <Link 
+                  href={`/login?redirect=/profiles/${account.id}`}
+                  className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  Fazer Login
+                </Link>
+              </div>
+            )}
+
+            {/* Ratings List */}
+            {!ratingsLoading && ratings.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-4">
+                  Todas as Avaliações ({ratings.length})
+                </h4>
+                <div className="space-y-4">
+                  {ratings.map((rating) => (
+                    <div key={rating.id} className="border-b border-gray-200 pb-4 last:border-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-600 font-semibold text-sm">
+                              {rating.user?.display_name?.charAt(0).toUpperCase() || 'U'}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900 text-sm">
+                                {rating.user?.display_name || 'Usuário'}
+                              </div>
+                              <RatingStars 
+                                rating={rating.rating}
+                                size="xs"
+                                showCount={false}
+                              />
+                            </div>
+                          </div>
+                          {rating.comment && (
+                            <p className="text-gray-700 mt-2 ml-10">{rating.comment}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 ml-10">
+                        {formatRatingDate(rating.created_at)}
+                        {rating.updated_at !== rating.created_at && ' (editado)'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!ratingsLoading && ratings.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <svg className="w-16 h-16 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+                <p>Ainda não há avaliações para este perfil.</p>
+                <p className="text-sm mt-1">Seja o primeiro a avaliar!</p>
+              </div>
+            )}
           </div>
         </div>
 

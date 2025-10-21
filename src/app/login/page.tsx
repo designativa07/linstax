@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function LoginPage() {
@@ -12,6 +12,10 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // Obter URL de redirecionamento dos parâmetros
+  const redirectTo = searchParams.get('redirect') || '/dashboard'
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,7 +33,7 @@ export default function LoginPage() {
       } else {
         // Aguardar um pouco para os cookies serem processados
         setTimeout(() => {
-          window.location.href = '/dashboard'
+          window.location.href = redirectTo
         }, 500)
       }
     } catch (err) {
@@ -47,7 +51,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
+          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`
         }
       })
 
@@ -74,6 +78,13 @@ export default function LoginPage() {
               criar uma nova conta
             </Link>
           </p>
+          {redirectTo !== '/dashboard' && (
+            <div className="mt-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md">
+              <p className="text-sm">
+                <strong>Faça login</strong> para continuar e salvar seus favoritos!
+              </p>
+            </div>
+          )}
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           {error && (
